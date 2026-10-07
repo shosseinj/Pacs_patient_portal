@@ -1,0 +1,10 @@
+.git
+.env
+.superpowers
+.venv
+data
+backups
+test-artifacts
+__pycache__
+.pytest_cache
+.ruff_cache

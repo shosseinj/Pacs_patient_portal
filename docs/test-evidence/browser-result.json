@@ -1,0 +1,25 @@
+{
+  "passed": true,
+  "scenarios": [
+    "operator login",
+    "create patient",
+    "ZIP upload",
+    "real Orthanc import",
+    "quarantine before release",
+    "explicit release",
+    "logout revocation",
+    "patient login",
+    "OHIF rendering",
+    "slice scrolling",
+    "mobile layout",
+    "other patient metadata/frame denial"
+  ],
+  "image": {
+    "width": 855,
+    "height": 697,
+    "levels": 252
+  },
+  "frameRequests": 8,
+  "errors": [],
+  "failed": []
+}

@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "images": 8,
+  "tests": [
+    "real upload/import/release",
+    "DICOMweb QIDO/metadata/frames/bulk",
+    "other patient denial",
+    "OHIF HTML/config served",
+    "logout revocation",
+    "archive requires auth"
+  ]
+}

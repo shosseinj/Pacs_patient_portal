@@ -1,0 +1,32 @@
+server {
+    listen 8080;
+    server_name _;
+    client_max_body_size 2000m;
+    client_body_timeout 120s;
+    proxy_read_timeout 180s;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy same-origin always;
+    add_header X-Frame-Options SAMEORIGIN always;
+    add_header Cross-Origin-Opener-Policy same-origin always;
+    add_header Cross-Origin-Embedder-Policy require-corp always;
+    add_header Cross-Origin-Resource-Policy same-origin always;
+    location = / { return 302 /portal; }
+    location = /_auth {
+        internal;
+        proxy_pass http://portal:8000/api/session;
+        proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
+        proxy_set_header Cookie $http_cookie;
+        proxy_set_header Host $http_host;
+    }
+    location /portal { proxy_pass http://portal:8000; proxy_set_header Host $http_host; }
+    location /api/ { proxy_pass http://portal:8000; proxy_set_header Host $http_host; }
+    location /dicom-web/ { proxy_pass http://portal:8000; proxy_set_header Host $http_host; proxy_buffering off; }
+    location = /viewer {
+        auth_request /_auth;
+        error_page 401 =302 /portal/login;
+        proxy_pass http://ohif:8080/viewer;
+    }
+    location = /health { proxy_pass http://portal:8000/health; proxy_set_header Host $http_host; }
+    location / { proxy_pass http://ohif:8080; }
+}

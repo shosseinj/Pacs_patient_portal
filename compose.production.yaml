@@ -1,0 +1,9 @@
+services:
+  gateway:
+    ports: !override
+      - "443:8443"
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:?Set HTTPS origin using configure.py}
+    volumes:
+      - ./deploy/nginx.tls.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./deploy/tls:/etc/nginx/tls:ro

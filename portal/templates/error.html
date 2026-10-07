@@ -1,0 +1,1 @@
+{% extends 'base.html' %}{% block content %}<section class="card error-card"><span class="eyebrow">{{ code }}</span><h1>{{ message }}</h1><a class="primary button" href="{{ '/portal/login' if code==401 else '/portal' }}">{{ 'ورود به سامانه' if code==401 else 'بازگشت به سامانه' }}</a></section>{% endblock %}

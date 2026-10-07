@@ -1,0 +1,97 @@
+name: patient-pacs
+services:
+  db:
+    image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+    environment:
+      POSTGRES_USER: pacs
+      POSTGRES_DB: pacs_portal
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run scripts/configure.py}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./deploy/init-db.sql:/docker-entrypoint-initdb.d/01-orthanc.sql:ro
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U pacs -d pacs_portal"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+  orthanc:
+    image: orthancteam/orthanc:26.7.0@sha256:99082b87c96d56e57472d703ad799b779da7aa35aedac830d58cce646a43643f
+    environment:
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+      POSTGRESQL_PLUGIN_ENABLED: "true"
+      ORTHANC_JSON: |
+        {
+          "Name": "Private Patient PACS", "RemoteAccessAllowed": true,
+          "AuthenticationEnabled": true, "RegisteredUsers": {"portal":"${ORTHANC_PASSWORD:?Run configure}"},
+          "DicomServerEnabled": false, "OverwriteInstances": false,
+          "RestApiWriteToFileSystemEnabled": false,
+          "DicomWeb": {"Enable":true,"Root":"/dicom-web/","EnableWado":false},
+          "PostgreSQL": {"EnableIndex":true,"EnableStorage":false,"Host":"db","Port":5432,
+            "Database":"orthanc","Username":"pacs","Password":"${POSTGRES_PASSWORD}","Lock":true}
+        }
+    volumes:
+      - orthanc_data:/var/lib/orthanc/db
+    depends_on:
+      db: {condition: service_healthy}
+    restart: unless-stopped
+  portal:
+    build: .
+    image: patient-pacs-portal:1.0.0
+    env_file: .env
+    environment:
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      db: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=4)"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  worker:
+    build: .
+    image: patient-pacs-portal:1.0.0
+    command: [python, -m, portal.worker]
+    env_file: .env
+    environment:
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      portal: {condition: service_healthy}
+      orthanc: {condition: service_started}
+    restart: unless-stopped
+  ohif:
+    image: ohif/app:v3.11.0@sha256:dee5c696c712082fdd4321b6f5ad94846dc97df5d970548ca0e1d5289667b047
+    entrypoint: [nginx, -g, "daemon off;"]
+    volumes:
+      - ./deploy/ohif-config.js:/usr/share/nginx/html/app-config.js:ro
+      - ./deploy/ohif-nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    restart: unless-stopped
+  gateway:
+    image: nginx:1.28-alpine@sha256:a8b39bd9cf0f83869a2162827a0caf6137ddf759d50a171451b335cecc87d236
+    ports:
+      - "${HTTP_BIND:-127.0.0.1}:${HTTP_PORT:-8080}:8080"
+    volumes:
+      - ./deploy/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+    environment:
+      NGINX_ENVSUBST_FILTER: ^PUBLIC_HOST$$
+    depends_on:
+      portal: {condition: service_healthy}
+      ohif: {condition: service_started}
+    restart: unless-stopped
+  maintenance:
+    image: patient-pacs-portal:1.0.0
+    profiles: [maintenance]
+    user: "0:0"
+    entrypoint: []
+    volumes:
+      - orthanc_data:/snapshot/orthanc
+      - uploads:/snapshot/uploads
+volumes:
+  postgres_data:
+  orthanc_data:
+  uploads:
